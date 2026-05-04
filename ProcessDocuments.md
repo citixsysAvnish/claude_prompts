@@ -214,9 +214,9 @@ SECTIONS TO INCLUDE (in this order):
 STRICT RULES:
 
 - Do NOT include any technical details (no code, no database schema,
-
   no architecture, no API references).
-
+- don't include all technical terms such as "CXS.Payments.PineLabsCloud", "U_PineLabs_ApiLog"
+  
 - Keep all language simple and business-oriented.
 
 - The document must be suitable for customer review and sign-off.
