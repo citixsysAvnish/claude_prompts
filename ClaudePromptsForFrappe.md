@@ -1,8 +1,50 @@
-Here are structured prompts you can give to Claude (or another AI coding assistant) to create a **Frappe Framework application** covering **App creation, DocTypes, Server Events, Client Events, and Event Overriding**.
+Below are reusable **Claude prompts** for creating a **Frappe Framework application**, including architecture, DocTypes, workflows, APIs, permissions, reports, and deployment. These prompts are designed for Claude Code / Claude with VS Code.
 
 ---
 
-## Prompt 1: Create a New Frappe Application
+## Prompt 1: Act as Frappe Framework Expert
+
+```
+You are a senior Frappe Framework and ERPNext developer with 10+ years of experience.
+
+Your task is to help me design and develop a production-ready Frappe application.
+
+Follow Frappe best practices:
+- Use Python backend
+- Use Frappe ORM
+- Use DocTypes instead of custom database tables wherever possible
+- Follow Frappe app structure
+- Use hooks.py properly
+- Use server scripts only when required
+- Create clean APIs
+- Apply role-based permissions
+- Write maintainable code
+
+Before creating anything:
+1. Analyze the business requirement
+2. Suggest application architecture
+3. Define DocTypes
+4. Define workflow
+5. Define user roles
+6. Define permissions
+7. Define reports
+8. Define integrations
+9. Then start development
+
+Always explain:
+- Why you choose a specific design
+- Alternative approaches
+- Security considerations
+- Performance considerations
+
+Do not generate code until the design is approved.
+```
+
+---
+
+---
+
+## Prompt 2: Create a New Frappe Application
 
 ```
 You are a Frappe Framework expert developer.
@@ -28,7 +70,7 @@ Provide:
 
 ---
 
-# Prompt 2: Create Custom DocType
+# Prompt 3: Create Custom DocType
 
 ```
 You are a senior Frappe ERPNext developer.
@@ -87,7 +129,7 @@ Create:
 
 ---
 
-# Prompt 3: Create Child Table DocType
+# Prompt 4: Create Child Table DocType
 
 ```
 Create a Frappe Child Table DocType named:
@@ -132,7 +174,7 @@ Create:
 
 ---
 
-# Prompt 4: Frappe Client Events
+# Prompt 5: Frappe Client Events
 
 ```
 You are a Frappe JavaScript developer.
@@ -164,7 +206,7 @@ Provide:
 
 ---
 
-# Prompt 5: Frappe Server Events
+# Prompt 6: Frappe Server Events
 
 ```
 You are a Frappe backend developer.
@@ -201,7 +243,7 @@ Provide:
 
 ---
 
-# Prompt 6: Override Existing DocType Events
+# Prompt 7: Override Existing DocType Events
 
 ```
 You are an expert Frappe Framework developer.
@@ -249,7 +291,7 @@ Explain why overriding through hooks is preferred over modifying core code.
 
 ---
 
-# Prompt 7: Override Standard Frappe Method
+# Prompt 8: Override Standard Frappe Method
 
 ```
 You are a Frappe Framework expert.
@@ -285,7 +327,7 @@ Provide:
 
 ---
 
-# Prompt 8: Create Integration App Workflow
+# Prompt 9: Create Integration App Workflow
 
 ```
 Design a complete Frappe application workflow.
@@ -319,7 +361,7 @@ Use Frappe Framework best practices.
 
 ---
 
-# Prompt 9: Scheduled Event / Background Job
+# Prompt 10: Scheduled Event / Background Job
 
 ```
 Create a Frappe scheduled job.
@@ -354,7 +396,7 @@ Explain:
 
 ---
 
-# Prompt 10: Complete Enterprise-Level Frappe App
+# Prompt 11: Complete Enterprise-Level Frappe App
 
 ```
 Act as a senior Frappe ERP architect.
