@@ -56,8 +56,8 @@ Requirements:
 2. Explain the folder structure of the generated app.
 3. Configure hooks.py.
 4. Create a module named "Retail Integration".
-5. Add the app to an existing Frappe site.
-6. Explain how to install, migrate, and verify the app.
+5. Install the app to an existing Frappe site.
+6. Explain how to migrate, and verify the app.
 7. Follow Frappe coding standards.
 
 Provide:
