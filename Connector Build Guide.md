@@ -1,5 +1,5 @@
-# iVendNext Connector Build Playbook
-iVendNext Connector Build Playbook
+# iVendNext Connector Build Guide
+iVendNext Connector Build Guide
 Every step to build a new iVendNext connector app from scratch, using the ivendnext_connector_template (v2.0.0.23) and ivendnext_integration_core (contract v2). Each step names the file it touches, the rule behind it, and how to verify it worked. Each step ends with a Sage X3 Example taken from the ivendnext_sage_x3 connector.
 
 ## Step 1: Before You Start
@@ -62,7 +62,7 @@ Set the name shapes:
 
 Example
 
-    P=shopify; Pc="Shopify"; Pk=Shopify
+    P=sagex3; Pc="Sage X3"; Pk=SageX3
 
 ### 3.1. Rename Folders and Files
 
