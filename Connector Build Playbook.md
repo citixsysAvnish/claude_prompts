@@ -4,9 +4,7 @@ Every step to build a new iVendNext connector app from scratch, using the `ivend
 
 Template v2.0.0.23 Core contract v2 erp / ecom class
 
-0
-
-## Before you start
+## 0 Before you start
 
 Three decisions you can't walk back cheaply once code exists.
 
@@ -22,9 +20,7 @@ Three decisions you can't walk back cheaply once code exists.
 - A PR route into `github.com/ivendnext/.github` — Phase 1 needs it immediately.
 - Test credentials for the other system, kept out of the repo from day one. Never type them into a command line that lands in shell history.
 
-1
-
-## Reserve your names first
+## 1 Reserve your names first
 
 Frappe names (DocTypes, modules, custom-field prefixes) are global per site. A clash surfaces only later, when one app's uninstall deletes another's data.
 
@@ -39,9 +35,8 @@ python3 namespace/check_namespace.py --registry namespace/NAMESPACE_REGISTRY.tsv
 
 **Verify** the lint prints `registry lint passed` before you open the PR, not after review comments.
 
-2
 
-## Clone the newest template tag and rename it
+## 2 Clone the newest template tag and rename it
 
 A clone of an older tag inherits every defect the template has since fixed. Read the template's `CHANGELOG.md` for what's fix-bearing before you pick a tag.
 
@@ -76,9 +71,8 @@ Why three name shapes, not one: Frappe finds a DocType's Python class by taking 
 
 **Verify** `grep -rl "connector_template\|Connector Template\|TemplateConnector\|ConnectorTemplate" ivendnext_$P ci/` prints nothing.
 
-3
 
-## Set the four version constants and wire `hooks.py`
+## 3 Set the four version constants and wire `hooks.py`
 
 Core refuses registration on these before it reads a single entity declaration.
 
@@ -115,9 +109,8 @@ integration_core_settings = {
 
 **Verify** `bench --site <site> run-tests --module <app>.tests.test_scaffold` — a fresh copy of v2.0.0.23 should read 14 tests, OK, before you've written anything else.
 
-4
 
-## Build the Setting DocType and the one credential reader
+## 4 Build the Setting DocType and the one credential reader
 
 Every far-side call in the connector reads through exactly one function, so one place proves a connection and one place pauses it when something load-bearing changes underneath it.
 
@@ -133,9 +126,8 @@ Every far-side call in the connector reads through exactly one function, so one 
 
 **Verify** `tests/test_credentials.py::test_every_field_is_classified_exactly_once` passes after every field you add, in the same commit as the JSON change.
 
-5
 
-## Build the transport — one file owns the socket
+## 5 Build the transport — one file owns the socket
 
 Security rule: only `<platform>/client.py` imports an HTTP (or SOAP) client. Every other file, including every mapper, talks to the far side only through it.
 
@@ -147,9 +139,8 @@ Security rule: only `<platform>/client.py` imports an HTTP (or SOAP) client. Eve
 
 **Verify** `grep -rn "^import requests\|^from requests" <app> --include=*.py` matches only `client.py` and its own test file.
 
-6
 
-## Write your first entity mapper
+## 6 Write your first entity mapper
 
 One module, one entity, one shape every mapper in the connector follows — so a reviewer who knows one mapper can review all of them.
 
@@ -183,9 +174,7 @@ One module, one entity, one shape every mapper in the connector follows — so a
 
 **Verify** every new test was seen to fail once before its fix landed. Read the counts from the output — `bench run-tests` exits 0 even on a failed run.
 
-7
-
-## If the entity is outbound or bidirectional: build the push pipeline
+## 7 If the entity is outbound or bidirectional: build the push pipeline
 
 Skip this phase entirely for an inbound-only connector's first cut.
 
@@ -199,9 +188,8 @@ Skip this phase entirely for an inbound-only connector's first cut.
 
 **If you don't build `poll_status`:** an `Unverified` row has no automated way out, ever. That's acceptable for a first cut of a non-money entity — a human resolves it by reading the far side — but say so explicitly in your docs rather than leaving an operator to discover it.
 
-8
 
-## Wire the entity into `connector.py`
+## 8 Wire the entity into `connector.py`
 
 ### Do
 
@@ -234,9 +222,7 @@ Core's amount-echo and entity-handling logic reads the **stored** child rows on 
 
 **Verify** `tests/test_registration.py` passes against a real Core, with the refusals actually made to fire (an unsupported contract version, a missing company, an out-of-vocabulary entity).
 
-9
-
-## Add a `custom_<yours>_` field, only when the engine truly has nowhere to put a value
+## 9 Add a `custom_<yours>_` field, only when the engine truly has nowhere to put a value
 
 Common the moment your far side sends a description or long-name field the engine DocType simply doesn't carry.
 
@@ -249,9 +235,7 @@ Common the moment your far side sends a description or long-name field the engin
 
 **Verify** by reading the field back from the database after `apply()`, not from the function's return value — a test that only checks the return dict would have missed exactly the "skipped save on update" bug this phase exists to prevent.
 
-10
-
-## Wire a migrate hook that can never take the whole site down
+## 10 Wire a migrate hook that can never take the whole site down
 
 Frappe runs every installed app's `after_migrate` hook in one plain loop, inside one database transaction, with **no per-hook try/except**. If yours raises, every later app's hook never runs, the whole phase rolls back, and the migrate fails for every app on the site — not just yours.
 
@@ -270,9 +254,7 @@ A bare `frappe.db.rollback()` inside your own hook is worse than the bug it's gu
 
 **Verify** by deliberately making the wrapped function raise once in a test environment and confirming the migrate still completes for every app.
 
-11
-
-## Wire the scheduler
+## 11 Wire the scheduler
 
 ### `hooks.py`
 
@@ -301,9 +283,8 @@ def run_pass(adapter, run):
 - Plan your `cadence_due`/`last_pass_at` writer *before* you ship, not after. A gate that always returns `True` because nothing ever stamps the last-run time means every connection polls on every tick regardless of its configured cadence — an easy gap to ship by accident.
 - Build the retry/blocked drain (`lifecycle.due_attempts`, `blocked_due`) in the same release that ships your first `Blocked` precondition. Without it, an unchanged blocked or retrying row is never re-tested on its own — only an operator's manual Retry, or the record actually changing on the far side again, ever revisits it.
 
-12
 
-## Tests, gate, and CI
+## 12 Tests, gate, and CI
 
 ### Build
 
@@ -313,9 +294,8 @@ def run_pass(adapter, run):
 
 **Verify** every new test file is added to the gate's allow-list in the same commit, or the PR explicitly says why it's left out. "Added later" has a way of becoming "never."
 
-13
 
-## Keep the copy upgradeable, and land through review
+## 13 Keep the copy upgradeable, and land through review
 
 ### The `template-base` branch
 
