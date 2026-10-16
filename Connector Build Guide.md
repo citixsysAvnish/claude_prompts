@@ -62,7 +62,7 @@ Set the name shapes:
 
 Example
 
-    P=sagex3; Pc="Sage X3"; Pk=SageX3
+    P=sage_x3; Pc="Sage X3"; Pk=SageX3
 
 ### 3.1. Rename Folders and Files
 
