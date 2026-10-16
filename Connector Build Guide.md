@@ -215,9 +215,9 @@ A fail-closed three-way decision: landed, never sent or unknown. Only a connecti
 This must match only client.py and its own test file.
 
 ### 6.5. Sage X3 Example
-The client lives in sage_x3/client.py (class Session). URL shape is [base]/[x3_folder]/[representation].
+The client lives in sage_x3/client.py (class Session). URL shape is [baseUrl]/[x3_folder]/[representation].
 
-    GET [base]/X3ERPV12_SEED/XIVNRXITM?representation=XIVNRXITM.$query&count=200
+    GET [baseUrl]/X3ERPV12_SEED/XIVNRXITM?representation=XIVNRXITM.$query&count=200
 
 The reply envelope is {"$itemsPerPage": N, "$resources": [...]}. Each row carries $uuid and $etag.
 
