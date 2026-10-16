@@ -1,6 +1,6 @@
 # iVendNext Connector Build Playbook
 iVendNext Connector Build Playbook
-Every step to build a new iVendNext connector app from scratch, using the ivendnext_connector_template (v2.0.0.23) and ivendnext_integration_core (contract v2). Each step names the file it touches, the rule behind it, and how to verify it worked.
+Every step to build a new iVendNext connector app from scratch, using the ivendnext_connector_template (v2.0.0.23) and ivendnext_integration_core (contract v2). Each step names the file it touches, the rule behind it, and how to verify it worked. Each step ends with a Sage X3 Example taken from the ivendnext_sage_x3 connector.
 
 ## Step 1: Before You Start
 Make three decisions first. They are hard to change once code exists.
@@ -21,6 +21,13 @@ A PR route into github.com/ivendnext/.github (needed in Step 2).
 
 Test credentials for the other system, kept out of the repo. Never type them on a command line that lands in shell history.
 
+### 1.5. Sage X3 Example
+Transport: REST web services (OData-style queries on X3 representations) for every read. SOAP (CAdxWebServiceXmlCC) only for the Customer create.
+
+Entities: 12 inbound entities — uom, item, price, customer, supplier, product_category, customer_group, supplier_group, warehouse, currency, currency_exchange, mode_of_payment. One outbound flow — Customer create, off by default (Enable Outbound Customer Sync).
+
+Money: none. Every entity is declared carries_money=False, so the money checklist was not needed for the first cut.
+
 ## Step 2: Reserve Your Names First
 Frappe names (DocTypes, modules, custom-field prefixes) are global per site. A clash shows up later, when one app's uninstall deletes another app's data.
 
@@ -35,6 +42,9 @@ Validate the row before you open the PR:
     python3 namespace/check_namespace.py --registry namespace/NAMESPACE_REGISTRY.tsv --lint-registry
 
 Verify: the lint prints "registry lint passed".
+
+### 2.1. Sage X3 Example
+App name ivendnext_sage_x3 was reserved in the namespace registry on 2026-09-21 with status RESERVED, before any repo or bench existed. The repo now lives at github.com/ivendnext/ivendnext_sage_x3.
 
 ## Step 3: Clone the Newest Template Tag and Rename It
 A clone of an older tag inherits every defect the template has since fixed. Read the template's CHANGELOG.md before you pick a tag.
@@ -79,6 +89,14 @@ Why more than one name shape: Frappe finds a DocType's Python class by removing 
 
 This must print nothing.
 
+### 3.4. Sage X3 Example
+
+    P=sage_x3; Pc="Sage X3"; Pk=SageX3
+
+Result: app folder ivendnext_sage_x3, Setting DocType "iVendNext Sage X3 Setting", Setting class iVendNextSageX3Setting, connector class SageX3Connector.
+
+"Sage X3" contains a space, so it is exactly the case that needs the separate class form SageX3.
+
 ## Step 4: Set the Version Constants and Wire hooks.py
 Core refuses registration on these before it reads a single entity declaration.
 
@@ -117,6 +135,21 @@ Ship no Workspace, no card code, no after_install or before_uninstall.
 
 A fresh copy of v2.0.0.23 reads 14 tests, OK.
 
+### 4.4. Sage X3 Example
+hooks.py with the Step 3 names filled in:
+
+    required_apps = ["erpnext", "ivendnext_integration_core"]
+
+    integration_core_connectors = {"sage_x3": "ivendnext_sage_x3.connector.SageX3Connector"}
+    integration_core_retry_method = {"sage_x3": "ivendnext_sage_x3.connector.retry"}
+    integration_core_settings = {
+        "sage_x3": {"doctype": "iVendNext Sage X3 Setting", "label": "Sage X3"}
+    }
+
+connector.py::retry() is a module-level function with REDRIVABLE = {Failed, Deferred}.
+
+The Sage X3 copy started on template v0.1.1 with Core v1.0.0-rc.1. On 2026-10-10 it moved to template v2.0.0.21 and Core v2.0.0.157, so TESTED_WITH_CORE and TEMPLATE_ORIGIN had to change with it.
+
 ## Step 5: Build the Setting DocType and the Credential Reader
 Every far-side call reads through exactly one function. One place proves a connection, and one place pauses it when something important changes underneath it.
 
@@ -149,6 +182,20 @@ Do not force the template's default _probe() design. Make far_side_identity an o
 
 test_every_field_is_classified_exactly_once must pass after every field you add, in the same commit as the JSON change.
 
+### 5.8. Sage X3 Example
+Auth is HTTP Basic (an X3 user such as IVEND). There is no OAuth.
+
+A possible field classification for iVendNext Sage X3 Setting:
+
+    ADDRESS_FIELD       base URL, e.g. https://x3erpv12sqlvm:8443/api1/x3/erp
+    SIGN_IN_FIELDS      username, password
+    ROUTING_FIELDS      x3_folder (e.g. X3ERPV12_SEED), x3_company_code
+    NOT_ROUTING_FIELDS  default_item_group, company
+
+x3_folder is routing because a different folder is a different X3 dataset answering on the same URL. x3_company_code drives the XCMPY filter, so changing it changes which records come back.
+
+In CI, the URL and password come from SAGE_X3_BASE_URL and SAGE_X3_PASSWORD, never from a tracked file.
+
 ## Step 6: Build the Transport — One File Owns the Socket
 Only [platform]/client.py imports an HTTP (or SOAP) client. Every other file, including every mapper, talks to the far side through it.
 
@@ -166,6 +213,25 @@ A fail-closed three-way decision: landed, never sent or unknown. Only a connecti
     grep -rn "^import requests\|^from requests" [app] --include=*.py
 
 This must match only client.py and its own test file.
+
+### 6.5. Sage X3 Example
+The client lives in sage_x3/client.py (class Session). URL shape is [base]/[x3_folder]/[representation].
+
+    GET [base]/X3ERPV12_SEED/XIVNRXITM?representation=XIVNRXITM.$query&count=200
+
+The reply envelope is {"$itemsPerPage": N, "$resources": [...]}. Each row carries $uuid and $etag.
+
+Pagination follows $links.$next.$url, with a guard that stops if the same page comes back twice.
+
+Incremental read:
+
+    where=UPDDATTIM ge [watermark - poll_overlap_seconds]
+
+The timestamp is sent in UTC with a trailing Z. Sending +00:00 returns HTTP 500 on this X3 server. This is a measured fact for X3 — exactly the kind of detail not to copy into another connector without re-testing.
+
+The overlap value is derived for X3, not copied from Acumatica's 120 seconds.
+
+SOAP calls go to .../CAdxWebServiceXmlCC and need a real SOAPAction header.
 
 ## Step 7: Write Your First Entity Mapper
 One module, one entity, one shape that every mapper follows. A reviewer who knows one mapper can review all of them.
@@ -212,6 +278,54 @@ apply(connector, body, attempt, *, far_side_at=None): the 9-step order in 7.3.
 ### 7.4. Verify
 Every new test must be seen to fail once before its fix lands. Read the counts from the output; bench run-tests exits 0 even on a failed run.
 
+### 7.5. Sage X3 Example — Item Mapper
+Path: ivendnext_sage_x3/sage_x3/item.py
+
+    ENTITY = "item"
+    DOCTYPE = "Item"
+    RESOURCE = "XIVNRXITM"
+    TIMESTAMP_FIELD = "XUPDDATTIM"   # X-prefixed stamp on XCMPY-scoped representations; confirm in your SELECT
+    COMPANY_SCOPED = True
+
+    def external_id(body):
+        return body["ITMREF"]
+
+    def _mapped(body):
+        return {
+            "item_code": body["ITMREF"],
+            "item_name": body["ITMDES1"],
+            "description": " ".join(filter(None, [body.get("ITMDES2"), body.get("ITMDES3")])),
+            "item_group": body["TCLCOD"],
+            "stock_uom": body["STU"],
+            "has_batch_no": body["LOTMGTCOD"],    # convert the X3 code to 0/1
+            "has_serial_no": body["SERMGTCOD"],   # convert the X3 code to 0/1
+            "barcode": body["EANCOD"],
+        }
+
+Map the raw code (TCLCOD, STU), never the _REF.$title text beside it.
+
+XCMPY, XIVENCUST0 to XIVENCUST4, VACITM and STOMGTCOD have no target in Item. They stay out of _mapped(), so an edit to only those fields does not trigger a re-apply.
+
+Other Sage X3 entities and their sources:
+
+    uom                XIVNRXTBUNT     UOM
+    customer           XIVNRXBPC       Customer          key BPCNUM, name BPRNAM
+    supplier           XIVNRXBPS       Supplier
+    price              XIVNRPTE / XIVNRSPL
+    product_category   XIVNRITG        Item Group        XUPDDATTIM
+    customer_group     XIVNRBCG        Customer Group    XUPDDATTIM
+    supplier_group     XIVNRBGS        Supplier Group    XUPDDATTIM
+    warehouse          XIVNRXFCY       Warehouse         UPDDATTIM
+    currency           XIVNRTABCUR     Currency          UPDDATTIM
+    currency_exchange  XIVNRCRR1       Currency Exchange XUPDDATTIM
+    mode_of_payment    XIVNRXPM        Mode of Payment   XUPDDATTIM   key PAM
+
+Vocabulary: Core's grant IC-ERP-STRINGS-3 gave 8 of the 9 requested strings. item_group was refused in favour of the existing product_category, and tax_template is still held. Use the granted string, never your own.
+
+Identity: on XIVNRCRR1 the $uuid is not stable, so currency_exchange uses the triple (from currency, to currency, date) as its external id.
+
+Supersession: some mode_of_payment rows share the same XUPDDATTIM (e.g. PAM="BAR"). record.is_superseded, keyed on external_id, handles the tie — step 3 of 7.3 in practice.
+
 ## Step 8: Build the Push Pipeline (Optional)
 (Optional, Only required if the entity is outbound or bidirectional)
 Skip this step for an inbound-only first cut.
@@ -235,6 +349,19 @@ Confirmed success is Applied. An ambiguous reply (timeout, fault, a success repl
 
 ### 8.6. If You Do Not Build poll_status
 An Unverified row then has no automated way out. That is acceptable for a non-money first cut, but say so in your docs.
+
+### 8.7. Sage X3 Example — Customer Outbound
+Only Customer goes outbound, and only as a create. customer_outbound.py calls soap_client.py::save(); modify() is not wired yet.
+
+Fast path: controllers/events.py::on_customer_created. Sweep: controllers/drive.py::sweep_ours.
+
+It is off by default. An operator turns on Enable Outbound Customer Sync in iVendNext Sage X3 Setting.
+
+poll_status is not built for Sage X3. An Unverified customer is resolved by a person checking the BPCNUM in X3.
+
+Readiness gap still open: a customer with no tax id (CRN) needs an agreed policy before it can be sent.
+
+Test record used on the bench: ZZTEST01.
 
 ## Step 9: Wire the Entity into connector.py
 
@@ -270,6 +397,21 @@ Never use after_migrate for this. Patches run in the schema-sync phase, before C
 
 Run it against a real Core, with the refusals actually made to fire (unsupported contract version, missing company, out-of-vocabulary entity).
 
+### 9.6. Sage X3 Example
+
+    from .sage_x3 import item, currency, product_category, ...
+
+    ENTITIES = (
+        (item.ENTITY, "Inbound", "Watermark", "Theirs", False, item.ENTITY_SCHEME_VERSION),
+        (currency.ENTITY, "Inbound", "Watermark", "Theirs", False, currency.ENTITY_SCHEME_VERSION),
+        (product_category.ENTITY, "Inbound", "Watermark", "Theirs", False, product_category.ENTITY_SCHEME_VERSION),
+        # ... one row per entity, 12 in total
+    )
+
+    INBOUND_MODULES = {item.ENTITY: item, currency.ENTITY: currency, product_category.ENTITY: product_category}
+
+surcharge is granted by Core but not wired. It reads two representations (XIVNRPFOTINV and XIVNRSFOTINV), and fetch_changed expects one RESOURCE per entity. Leave it out of ENTITIES until that is solved, rather than forcing it in.
+
 ## Step 10: Add a custom_[yours]_ Field (Optional)
 (Optional, Only required if the engine DocType truly has nowhere to put a value)
 Common when the far side sends a description or long-name field the engine DocType does not carry.
@@ -297,6 +439,11 @@ Map the field in _mapped(), write it in apply() unconditionally (step 7 of 7.3),
 ### 10.5. Verify
 Read the field back from the database after apply(), not from the return value.
 
+### 10.6. Sage X3 Example
+Item needs no custom field: ITMDES2 and ITMDES3 land in the standard description field.
+
+The older, pre-template Sage X3 design used fields such as custom_x3_customer_ref and custom_x3_supplier_ref. Under the template, a field like that must use a prefix reserved in the registry (Step 2), and the identity map already stores the X3 code, so a reference field is usually not needed at all.
+
 ## Step 11: Wire a Migrate Hook That Can Never Take the Site Down
 Frappe runs every installed app's after_migrate hook in one loop, in one transaction, with no per-hook try/except. If yours raises, later apps' hooks never run, the phase rolls back, and migrate fails for every app on the site.
 
@@ -311,6 +458,9 @@ A bare frappe.db.rollback() inside your hook is worse than the bug it guards aga
 
 ### 11.1 Verify
 In a test environment, make the wrapped function raise once and confirm migrate still completes for every app.
+
+### 11.2 Sage X3 Example
+Nothing changes for Sage X3. Its after_migrate goes through the same never-raise wrapper, so a bad custom-field file can never stop migrate for the other apps on the bench.
 
 ## Step 12: Wire the Scheduler
 
@@ -344,6 +494,18 @@ Plan your cadence_due / last_pass_at writer before you ship. A gate that always 
 ### 12.6. Retry and Blocked Drain
 Build lifecycle.due_attempts and blocked_due in the same release as your first Blocked precondition. Without it, an unchanged blocked or retrying row is only revisited by a manual Retry or a far-side change.
 
+### 12.7. Sage X3 Example
+Method names follow the [platform]_ rule from 12.1:
+
+    scheduler_events = {
+        "cron": {"*/5 * * * *": ["ivendnext_sage_x3.controllers.drive.sage_x3_every_five_minutes"]},
+        "hourly": ["ivendnext_sage_x3.controllers.drive.sage_x3_hourly"],
+    }
+
+The drive pass runs on queue="long" with a 1500-second timeout. Retry runs on queue="short" with 300 seconds.
+
+controllers/drive.py::cadence_due decides whether a connection is due. run_pass walks every entity, then sweep_ours sends any new Customer to X3.
+
 ## Step 13: Tests, Gate and CI
 
 ### 13.1. Per-Mapper Tests
@@ -360,6 +522,11 @@ At minimum, a TLS-never-off check and a no-committed-credentials check. Arm the 
 ### 13.4. Verify
 Every new test file is added to the gate's allow-list in the same commit, or the PR says why it is left out.
 
+### 13.5. Sage X3 Example
+Following the naming rule, the gate is ci/sage_x3_gate.py. The credentials lint is armed from SAGE_X3_BASE_URL and SAGE_X3_PASSWORD.
+
+When the repo moved from ivendcd to the ivendnext org, those CI secrets had to be set again on the new repo. Until they are, the real-X3 tests cannot run in CI.
+
 ## Step 14: Final Step — Keep the Copy Upgradeable and Land Through Review
 
 ### 14.1. The template-base Branch
@@ -375,5 +542,10 @@ Branch from the team's integration branch, open a PR back into it, and get the g
 Cite code as path::function in commit messages and docs, never a line number.
 
 Any entity that carries money needs two independent reviewers and a human before merge, every time.
+
+### 14.3. Sage X3 Example
+The Sage X3 copy has been upgraded several times: template v0.1.2 → v0.1.9 → v2.0.0.21. The next upgrade looks like this:
+
+    bash upgrade_template.sh ivendnext_sage_x3 v2.0.0.23 sage_x3 "Sage X3" SageX3
 
 Your connector is now ready to register with Integration Core. Re-read the cited template docs (GETTING_STARTED, BUILD_A_CONNECTOR, MAPPER_TEMPLATE, CODING_GUIDELINES, UPGRADING_YOUR_COPY at v2.0.0.23) before building on a specific mechanism.
